@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:doctors_app/provider/message_provider.dart';
 
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../widget/constant.dart';
 import 'icons_list.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -12,7 +16,9 @@ class DetailScreen extends StatefulWidget {
 }
 
 class _DetailScreenState extends State<DetailScreen> {
-  //IconData? _newIcon;
+  IconData? _newIcon;
+  final messageTextController = TextEditingController();
+  late FocusNode myFocusNode;
 
   Future<void> _showMyDialog() async {
     return showDialog<void>(
@@ -20,37 +26,47 @@ class _DetailScreenState extends State<DetailScreen> {
       barrierDismissible: false, // user must tap button!
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('AlertDialog Title'),
           content: SingleChildScrollView(
-            child: Wrap(
-              spacing: 10.0,
-              runSpacing: 10.0,
-              children: icons.map((iconData)=>InkWell(
-                child: Opacity(
-                  opacity: .7,
-                  child: Icon(iconData,size: 60.0,color: Colors.green),
-                ),
-                onTap: (){
-                  Navigator.of(context).pop<IconData>(iconData);
-                },
-              )).toList(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: icons
+                  .map((iconData) => InkWell(
+                        child: Opacity(
+                          opacity: .7,
+                          child: Icon(iconData, color: Colors.green),
+                        ),
+                        onTap: () {
+                          Navigator.of(context).pop<IconData>(iconData);
+                        },
+                      ))
+                  .toList(),
             ),
           ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Approve'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
         );
       },
     );
   }
 
   @override
+  void initState() {
+    super.initState();
+
+    myFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    // Clean up the focus node when the Form is disposed.
+    myFocusNode.dispose();
+
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final messageId = ModalRoute.of(context)?.settings.arguments.toString();
+    final loadedServices = Provider.of<MessageProvider>(context, listen: false)
+        .findById(messageId!);
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -67,47 +83,77 @@ class _DetailScreenState extends State<DetailScreen> {
         ),
         actions: const [Icon(Icons.more_vert)],
       ),
-      body: ListView(
-        shrinkWrap: true,
-        children: [
-          ListTile(
-            leading: CircleAvatar(
-              backgroundImage: NetworkImage(
-                  "https://img.freepik.com/free-psd/doctor-with-his-arms-crossed-white-background_1368-22255.jpg?w=900"),
-            ),
-            title: Text(""),
-            subtitle: MessageBubble(
-                sender: "senderText", text: "messgeText", isMe: false),
-            trailing: GestureDetector(
-              onTap: () {
-                _showMyDialog();
-              },
-              child: const Text("😀"),
-            ),
-            /*trailing: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => debugPrint("hello"),
-                    child: const Image(
-                      image: AssetImage("assets/images/Vector.png"),
-                      width: 20,
+      body: SafeArea(
+        child: Column(
+          children: [
+            ListTile(
+              leading: CircleAvatar(
+                backgroundImage: NetworkImage(loadedServices.imgUrl!),
+              ),
+              title: const Text(""),
+              subtitle: Row(
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        MessageBubble(
+                          sender: loadedServices.title!,
+                          text: loadedServices.description!,
+                          isMe: loadedServices.isMe!,
+                        ),
+                        Positioned(right: 10,bottom:10,child: Icon(_newIcon == icons ? _newIcon : Icons.image))
+                      ],
                     ),
                   ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                     _showMyDialog();
-                    },
-                    child: const Text("😀"),
+                  //const SizedBox(width: 10),
+                  GestureDetector(
+                      onTap: (){
+                        setState(() {
+                          myFocusNode.requestFocus();
+                        });
+                      },
+                      child: const Image(image:AssetImage("assets/images/Vector.png"), height: 30,width: 30,)
                   ),
-                ),
-              ],
-            ),*/
-          ),
-          //Positioned(bottom:10,child: Icon(Icons.sentiment_satisfied))
-        ],
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () => _showMyDialog(),
+                    child: const Text("😀", style: TextStyle(fontSize: 30),),
+                  )
+                ],
+              ),
+            ),
+            Spacer(),
+            Container(
+              decoration: kMessageContainerDecoration,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      focusNode: myFocusNode,
+                      controller: messageTextController,
+                      onChanged: (value){
+                        loadedServices.description = value;
+                      },
+                      decoration: kMessageTextFieldDecoration,
+                    ),
+                  ),
+                  TextButton(
+                      onPressed: (){
+                        messageTextController.clear();
+                        //
+                        // _firestore.collection('messages').add({
+                        //   'text': messageText,
+                        //   'sender': loggedInUser
+                        // });
+                      },
+                      child: const Text('Send', style: kSendButtonTextStyle,)
+                  )
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -118,12 +164,13 @@ class MessageBubble extends StatelessWidget {
   final String text;
   final bool isMe;
 
-  MessageBubble({required this.sender, required this.text, required this.isMe});
+  const MessageBubble(
+      {Key? key, required this.sender, required this.text, required this.isMe}): super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.all(10.0),
+      padding: const EdgeInsets.all(10.0),
       child: Column(
         crossAxisAlignment:
             isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -131,19 +178,19 @@ class MessageBubble extends StatelessWidget {
           Material(
             elevation: 5.0,
             borderRadius: isMe
-                ? BorderRadius.only(
+                ? const BorderRadius.only(
                     topLeft: Radius.circular(30.0),
                     bottomLeft: Radius.circular(30.0),
                     bottomRight: Radius.circular(30.0),
                   )
-                : BorderRadius.only(
+                : const BorderRadius.only(
                     topRight: Radius.circular(30.0),
                     bottomLeft: Radius.circular(30.0),
                     bottomRight: Radius.circular(30.0),
                   ),
             color: isMe ? Colors.lightBlueAccent : Colors.white,
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
               child: Text(
                 text,
                 style: TextStyle(
