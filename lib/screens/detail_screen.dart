@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../widget/constant.dart';
+import 'icon.dart';
 import 'icons_list.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -50,7 +51,6 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   void initState() {
     super.initState();
-
     myFocusNode = FocusNode();
   }
 
@@ -58,7 +58,6 @@ class _DetailScreenState extends State<DetailScreen> {
   void dispose() {
     // Clean up the focus node when the Form is disposed.
     myFocusNode.dispose();
-
     super.dispose();
   }
 
@@ -101,55 +100,78 @@ class _DetailScreenState extends State<DetailScreen> {
                           text: loadedServices.description!,
                           isMe: loadedServices.isMe!,
                         ),
-                        Positioned(right: 10,bottom:10,child: Icon(_newIcon == icons ? _newIcon : Icons.image))
+                        Positioned(
+                            right: MediaQuery.of(context).size.height * 0.01,
+                            bottom: MediaQuery.of(context).size.height * 0.01,
+                            child: Icon(_newIcon , color: Colors.green))
                       ],
                     ),
                   ),
                   //const SizedBox(width: 10),
                   GestureDetector(
-                      onTap: (){
+                      onTap: () {
                         setState(() {
                           myFocusNode.requestFocus();
                         });
                       },
-                      child: const Image(image:AssetImage("assets/images/Vector.png"), height: 30,width: 30,)
-                  ),
+                      child: const Image(
+                        image: AssetImage("assets/images/Vector.png"),
+                        height: 30,
+                        width: 30,
+                      )),
                   const SizedBox(width: 10),
                   GestureDetector(
-                    onTap: () => _showMyDialog(),
-                    child: const Text("😀", style: TextStyle(fontSize: 30),),
+                    onTap: () async {
+                      var IconData = await
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=>IconsPage()));
+                      setState(() {
+                        _newIcon = IconData;
+                      });
+                    },
+                    child: const Text(
+                      "😀",
+                      style: TextStyle(fontSize: 30),
+                    ),
                   )
                 ],
               ),
             ),
-            Spacer(),
-            Container(
-              decoration: kMessageContainerDecoration,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      focusNode: myFocusNode,
-                      controller: messageTextController,
-                      onChanged: (value){
-                        loadedServices.description = value;
-                      },
-                      decoration: kMessageTextFieldDecoration,
+            const Spacer(),
+            SingleChildScrollView(
+              child: Container(
+                decoration: kMessageContainerDecoration,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    Expanded(
+                      child: TextField(
+                        focusNode: myFocusNode,
+                        controller: messageTextController,
+                        onChanged: (value) {
+                          loadedServices.description = value;
+                        },
+                        decoration: kMessageTextFieldDecoration,
+                      ),
                     ),
-                  ),
-                  TextButton(
-                      onPressed: (){
-                        messageTextController.clear();
-                        //
-                        // _firestore.collection('messages').add({
-                        //   'text': messageText,
-                        //   'sender': loggedInUser
-                        // });
-                      },
-                      child: const Text('Send', style: kSendButtonTextStyle,)
-                  )
-                ],
+                    TextButton(
+                        onPressed: () {
+                          messageTextController.clear();
+                          loadedServices.addListener(() {
+                            loadedServices.isMe = false;
+                            loadedServices.description = messageTextController.text;
+                          });
+                          //
+                          // _firestore.collection('messages').add({
+                          //   'text': messageText,
+                          //   'sender': loggedInUser
+                          // }),
+                        },
+                        child: const Text(
+                          'Send',
+                          style: kSendButtonTextStyle,
+                        ))
+                  ],
+                ),
               ),
             )
           ],
@@ -165,7 +187,8 @@ class MessageBubble extends StatelessWidget {
   final bool isMe;
 
   const MessageBubble(
-      {Key? key, required this.sender, required this.text, required this.isMe}): super(key: key);
+      {Key? key, required this.sender, required this.text, required this.isMe})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
